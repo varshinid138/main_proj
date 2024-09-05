@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Video List</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <style>
+        .video-container {
+            margin-top: 20px;
+        }
+        .video-item {
+            margin-bottom: 20px;
+        }
+        .converted-text {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+        }
+        .spinner-border {
+            display: none; /* Hide spinner initially */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-4">Available Videos</h1>
+
+        {% if videos and videos|length > 0 %}
+            <div class="video-container">
+                {% for video_name, video_url in videos %}
+                    {% if video_url %}
+                        <div class="video-item">
+                            <h5>{{ video_name }}</h5>
+                            <video width="320" height="240" controls>
+                                <source src="{{ video_url }}" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                            <!-- Convert Button -->
+                            <button class="btn btn-primary btn-sm mt-2 convert-btn" data-url="{{ video_url }}">Convert</button>
+                            <!-- Loading Spinner -->
+                            <div class="spinner-border text-primary" role="status" id="spinner-{{ forloop.counter }}">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <!-- Converted Text Container -->
+                            <div class="converted-text" id="converted-text-{{ forloop.counter }}" style="display:none;"></div>
+                        </div>
+                    {% else %}
+                        <p>{{ video_name }}</p>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No videos available.</p>
+        {% endif %}
+    </div>
+
+    <script>
+        document.querySelectorAll('.convert-btn').forEach((button, index) => {
+            button.addEventListener('click', () => {
+                const videoUrl = button.getAttribute('data-url');
+                const textDiv = document.getElementById(`converted-text-${index + 1}`);  // Get the corresponding div
+                const spinner = document.getElementById(`spinner-${index + 1}`);  // Get the spinner element
+
+                // Show loading spinner and disable the button
+                spinner.style.display = 'inline-block';
+                button.disabled = true;
+
+                fetch("{% url 'convert_video' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ video_url: videoUrl })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Hide spinner after processing
+                    spinner.style.display = 'none';
+                    button.disabled = false;
+
+                    if (data.success) {
+                        // Display a message with the path to the converted text file
+                        textDiv.style.display = 'block';
+                        textDiv.innerHTML = `<p>Process completed. You can download the converted text file <a href="${data.text_url}" target="_blank">here</a>.</p>`;
+                    } else {
+                        alert("Error: " + data.message);
+                    }
+                })
+                .catch(error => {
+                    // Hide spinner and re-enable button if an error occurs
+                    spinner.style.display = 'none';
+                    button.disabled = false;
+                    alert("An error occurred: " + error.message);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
